@@ -1,2 +1,2 @@
 # goodreaders
-A simple Chrome extension for goodread users 
+Developing a simple Chrome extension for goodread users 
