@@ -8,43 +8,19 @@
  * @param {function(string)} callback - called when the URL of the current tab
  *   is found.
  */
-function getCurrentTabUrl(callback) {
-  // Query filter to be passed to chrome.tabs.query - see
-  // https://developer.chrome.com/extensions/tabs#method-query
-  var queryInfo = {
-    active: true,
-    currentWindow: true
-  };
+function getCurrentSelection(callback) {
 
-  chrome.tabs.query(queryInfo, function(tabs) {
-    // chrome.tabs.query invokes the callback with a list of tabs that match the
-    // query. When the popup is opened, there is certainly a window and at least
-    // one tab, so we can safely assume that |tabs| is a non-empty array.
-    // A window can only have one active tab at a time, so the array consists of
-    // exactly one tab.
-    var tab = tabs[0];
-
-    // A tab is a plain object that provides information about the tab.
-    // See https://developer.chrome.com/extensions/tabs#type-Tab
-    var url = tab.url;
-
-    // tab.url is only available if the "activeTab" permission is declared.
-    // If you want to see the URL of other tabs (e.g. after removing active:true
-    // from |queryInfo|), then the "tabs" permission is required to see their
-    // "url" properties.
-    console.assert(typeof url == 'string', 'tab.url should be a string');
-
-    callback(url);
+  chrome.tabs.executeScript( {
+    code: "window.getSelection().toString();"
+  }, function(selection) {
+    if(!selection){
+      callback('');
+      return;
+    }
+    console.log( selection[0]);
+    callback(selection[0]);
   });
 
-  // Most methods of the Chrome extension APIs are asynchronous. This means that
-  // you CANNOT do something like this:
-  //
-  // var url;
-  // chrome.tabs.query(queryInfo, function(tabs) {
-  //   url = tabs[0].url;
-  // });
-  // alert(url); // Shows "undefined", because chrome.tabs.query is async.
 }
 
 /**
@@ -55,16 +31,20 @@ function getCurrentTabUrl(callback) {
  *   The callback gets a string that describes the failure reason.
  */
 function getImageUrl(searchTerm, callback, errorCallback) {
-  // Google image search - 100 searches per day.
-  // https://developers.google.com/image-search/
-  var searchUrl = 'https://ajax.googleapis.com/ajax/services/search/images' +
-    '?v=1.0&q=' + encodeURIComponent(searchTerm);
+
+  if(!searchTerm || searchTerm == ''){
+    errorCallback("No Text Selected");
+    return;
+  }
+  var searchUrl = 'https://www.goodreads.com/search/index.xml?' + 
+    'key=5Jvii4ApD6doocrnEWm9A&q=' + searchTerm ;
   var x = new XMLHttpRequest();
-  x.open('GET', searchUrl);
+  x.open('GET', searchUrl,true);
   // The Google image search API responds with JSON, so let Chrome parse it.
-  x.responseType = 'json';
+  //var myArr = JSON.parse(x.responseText);
   x.onload = function() {
     // Parse and process the response from Google Image Search.
+    /*
     var response = x.response;
     if (!response || !response.responseData || !response.responseData.results ||
         response.responseData.results.length === 0) {
@@ -81,6 +61,14 @@ function getImageUrl(searchTerm, callback, errorCallback) {
         typeof imageUrl == 'string' && !isNaN(width) && !isNaN(height),
         'Unexpected respose from the Google Image Search API!');
     callback(imageUrl, width, height);
+    */
+    if(!x.responseXML)
+    {
+      console.log("fuckoff");
+      return;
+    }
+    var book = x.responseXML.getElementsByTagName("work")[0].getElementsByTagName("best_book");
+    console.log(book[0].getElementsByTagName("title")[0].textContent);
   };
   x.onerror = function() {
     errorCallback('Network error.');
@@ -93,11 +81,12 @@ function renderStatus(statusText) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-  getCurrentTabUrl(function(url) {
+  getCurrentSelection(function(selection) {
     // Put the image URL in Google search.
-    renderStatus('Performing Google Image search for ' + url);
+    renderStatus('Performing GoodReads search for ' + selection);
+     
 
-    getImageUrl(url, function(imageUrl, width, height) {
+    getImageUrl(selection, function(imageUrl, width, height) {
 
       renderStatus('Search term: ' + url + '\n' +
           'Google image search result: ' + imageUrl);
